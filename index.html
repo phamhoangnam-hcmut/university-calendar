@@ -34,8 +34,8 @@
 
           const [summary, location, date, startTime, endTime] = parts;
 
-          const startDateTime = new Date(`${date}T${startTime}`);
-          const endDateTime = new Date(`${date}T${endTime}`);
+const startDateTime = new Date(`${date}T${startTime}+07:00`);
+const endDateTime = new Date(`${date}T${endTime}+07:00`);
 
           if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
             console.warn("Skipping line " + i + ": invalid date");
