@@ -1,0 +1,78 @@
+<!-- Step 1: Basic HTML Interface -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>University Schedule to Google Calendar</title>
+  <script src="https://apis.google.com/js/api.js"></script>
+  <script src="https://apis.google.com/js/client.js"></script>
+</head>
+<body>
+  <h1>University Schedule Exporter</h1>
+  <input type="file" id="timetableFile" accept=".csv,.xlsx" />
+  <button onclick="handleFileUpload()">Parse Timetable</button>
+  <button onclick="authenticateGoogle()">Authenticate with Google</button>
+  <button onclick="exportEvents()">Export to Google Calendar</button>
+  <div id="output"></div>
+
+  <script>
+    // Global variable to store parsed events
+    let events = [];
+
+    // Step 2: Handle file upload and parse timetable (example: CSV parsing)
+    function handleFileUpload() {
+      const fileInput = document.getElementById('timetableFile');
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+
+      reader.onload = function(e) {
+        const lines = e.target.result.split('\n');
+        lines.forEach(line => {
+          const [summary, location, date, startTime, endTime] = line.split(',');
+          const startDateTime = new Date(`${date}T${startTime}`);
+          const endDateTime = new Date(`${date}T${endTime}`);
+          events.push({ summary, location, start: startDateTime.toISOString(), end: endDateTime.toISOString() });
+        });
+        document.getElementById('output').innerText = `${events.length} events parsed.`;
+      };
+
+      reader.readAsText(file);
+    }
+
+    // Step 3: Authenticate with Google
+    function authenticateGoogle() {
+      gapi.load('client:auth2', () => {
+        gapi.client.init({
+          apiKey: 'YOUR_API_KEY',
+          clientId: 'YOUR_CLIENT_ID',
+          discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"],
+          scope: "https://www.googleapis.com/auth/calendar.events"
+        }).then(() => {
+          return gapi.auth2.getAuthInstance().signIn();
+        }).then(() => {
+          document.getElementById('output').innerText += "\nAuthenticated with Google.";
+        });
+      });
+    }
+
+    // Step 4: Export events to Google Calendar
+    function exportEvents() {
+      events.forEach(event => {
+        const resource = {
+          summary: event.summary,
+          location: event.location,
+          start: { dateTime: event.start },
+          end: { dateTime: event.end }
+        };
+
+        gapi.client.calendar.events.insert({
+          calendarId: 'primary',
+          resource
+        }).then(response => {
+          console.log('Event created: ' + response.result.htmlLink);
+        });
+      });
+      document.getElementById('output').innerText += `\n${events.length} events exported.`;
+    }
+  </script>
+</body>
+</html>
