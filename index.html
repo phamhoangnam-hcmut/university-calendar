@@ -1,93 +1,113 @@
-<!-- Step 1: Basic HTML Interface -->
 <!DOCTYPE html>
 <html>
 <head>
-  <title>University Schedule to Google Calendar</title>
-  <script src="https://apis.google.com/js/api.js"></script>
-  <script src="https://apis.google.com/js/client.js"></script>
+  <meta charset="UTF-8">
+  <title>University Schedule Exporter</title>
 </head>
 <body>
   <h1>University Schedule Exporter</h1>
-  <input type="file" id="timetableFile" accept=".csv,.xlsx" />
-  <button onclick="handleFileUpload()">Parse Timetable</button>
-  <button onclick="authenticateGoogle()">Authenticate with Google</button>
-  <button onclick="exportEvents()">Export to Google Calendar</button>
-  <div id="output"></div>
+  <input type="file" id="csvFile" />
+  <button onclick="parseCSV()">Parse Timetable</button>
+  <button onclick="handleAuthClick()">Authenticate with Google</button>
+  <button onclick="exportToCalendar()">Export to Google Calendar</button>
+  <p id="status"></p>
 
+  <script src="https://apis.google.com/js/api.js"></script>
   <script>
-    // Global variable to store parsed events
     let events = [];
 
-    // Step 2: Handle file upload and parse timetable (example: CSV parsing)
-    function handleFileUpload() {
-      const fileInput = document.getElementById('timetableFile');
-      const file = fileInput.files[0];
+    function parseCSV() {
+      const fileInput = document.getElementById('csvFile');
       const reader = new FileReader();
 
-      reader.onload = function(e) {
-        const lines = e.target.result.split('\n');
-lines.forEach(line => {
-  const [summary, location, date, startTime, endTime] = line.split(',');
+      reader.onload = function () {
+        const lines = reader.result.split('\n').map(line => line.trim()).filter(Boolean);
+        events = [];
 
-  if (!summary || !location || !date || !startTime || !endTime) {
-    return; // skip incomplete rows
-  }
+        lines.forEach((line, i) => {
+          const parts = line.split(',');
 
-  const startDateTime = new Date(`${date}T${startTime}`);
-  const endDateTime = new Date(`${date}T${endTime}`);
+          if (parts.length < 5) {
+            console.warn("Skipping line " + i + ": not enough data");
+            return;
+          }
 
-  if (isNaN(startDateTime) || isNaN(endDateTime)) {
-    return; // skip invalid dates
-  }
+          const [summary, location, date, startTime, endTime] = parts;
 
-  events.push({
-    summary,
-    location,
-    start: startDateTime.toISOString(),
-    end: endDateTime.toISOString()
-  });
-});
+          const startDateTime = new Date(`${date}T${startTime}`);
+          const endDateTime = new Date(`${date}T${endTime}`);
 
-        document.getElementById('output').innerText = `${events.length} events parsed.`;
+          if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+            console.warn("Skipping line " + i + ": invalid date");
+            return;
+          }
+
+          events.push({
+            summary,
+            location,
+            start: startDateTime.toISOString(),
+            end: endDateTime.toISOString()
+          });
+        });
+
+        document.getElementById("status").textContent = `${events.length} events parsed.`;
       };
 
-      reader.readAsText(file);
+      if (fileInput.files.length > 0) {
+        reader.readAsText(fileInput.files[0]);
+      } else {
+        alert("Please choose a CSV file first.");
+      }
     }
 
-    // Step 3: Authenticate with Google
-    function authenticateGoogle() {
+    // ========================= GOOGLE AUTH + CALENDAR =========================
+
+    const CLIENT_ID = '888068485940-gmf05tgrcij449c4vh0qjrri3vtskmc3.apps.googleusercontent.com';
+    const API_KEY = '';
+
+    const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
+    const SCOPES = "https://www.googleapis.com/auth/calendar.events";
+
+    function handleAuthClick() {
       gapi.load('client:auth2', () => {
         gapi.client.init({
-          apiKey: 'AIzaSyCkyLqxiUzqy2Aycpn4AF8L2xoz0PfFW1w',
-          clientId: '888068485940-gmf05tgrcij449c4vh0qjrri3vtskmc3.apps.googleusercontent.com',
-          discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"],
-          scope: "https://www.googleapis.com/auth/calendar.events"
+          apiKey: API_KEY,
+          clientId: CLIENT_ID,
+          discoveryDocs: DISCOVERY_DOCS,
+          scope: SCOPES,
         }).then(() => {
-          return gapi.auth2.getAuthInstance().signIn();
-        }).then(() => {
-          document.getElementById('output').innerText += "\nAuthenticated with Google.";
+          gapi.auth2.getAuthInstance().signIn().then(() => {
+            document.getElementById("status").textContent += " ✅ Authenticated!";
+          });
         });
       });
     }
 
-    // Step 4: Export events to Google Calendar
-    function exportEvents() {
+    function exportToCalendar() {
+      if (events.length === 0) {
+        alert("No events to export. Parse a file first.");
+        return;
+      }
+
       events.forEach(event => {
-        const resource = {
+        const calendarEvent = {
           summary: event.summary,
           location: event.location,
           start: { dateTime: event.start },
-          end: { dateTime: event.end }
+          end: { dateTime: event.end },
         };
 
         gapi.client.calendar.events.insert({
           calendarId: 'primary',
-          resource
-        }).then(response => {
-          console.log('Event created: ' + response.result.htmlLink);
+          resource: calendarEvent,
+        }).then(() => {
+          console.log("Event created:", event.summary);
+        }, (err) => {
+          console.error("Error creating event:", err);
         });
       });
-      document.getElementById('output').innerText += `\n${events.length} events exported.`;
+
+      document.getElementById("status").textContent += " ✅ Events sent to Google Calendar.";
     }
   </script>
 </body>
