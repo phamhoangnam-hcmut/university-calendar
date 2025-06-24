@@ -26,12 +26,28 @@
 
       reader.onload = function(e) {
         const lines = e.target.result.split('\n');
-        lines.forEach(line => {
-          const [summary, location, date, startTime, endTime] = line.split(',');
-          const startDateTime = new Date(`${date}T${startTime}`);
-          const endDateTime = new Date(`${date}T${endTime}`);
-          events.push({ summary, location, start: startDateTime.toISOString(), end: endDateTime.toISOString() });
-        });
+lines.forEach(line => {
+  const [summary, location, date, startTime, endTime] = line.split(',');
+
+  if (!summary || !location || !date || !startTime || !endTime) {
+    return; // skip incomplete rows
+  }
+
+  const startDateTime = new Date(`${date}T${startTime}`);
+  const endDateTime = new Date(`${date}T${endTime}`);
+
+  if (isNaN(startDateTime) || isNaN(endDateTime)) {
+    return; // skip invalid dates
+  }
+
+  events.push({
+    summary,
+    location,
+    start: startDateTime.toISOString(),
+    end: endDateTime.toISOString()
+  });
+});
+
         document.getElementById('output').innerText = `${events.length} events parsed.`;
       };
 
